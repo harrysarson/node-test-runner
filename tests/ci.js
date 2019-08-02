@@ -113,9 +113,11 @@ run('--version');
 
 /* Test examples */
 
-shell.echo('### Testing elm-test on example-application/');
+shell.cd('examples');
 
-shell.cd('example-application');
+shell.echo('### Testing elm-test on examples/application/');
+
+shell.cd('application');
 
 assertTestFailure();
 assertTestSuccess(path.join('tests', '*Pass*.elm'));
@@ -123,9 +125,9 @@ assertTestFailure(path.join('tests', '*Fail*.elm'));
 
 shell.cd('../');
 
-shell.echo('### Testing elm-test on example-package/');
+shell.echo('### Testing elm-test on examples/package/');
 
-shell.cd('example-package');
+shell.cd('package');
 
 assertTestSuccess(path.join('tests', '*Pass*.elm'));
 assertTestFailure(path.join('tests', '*Fail*.elm'));
@@ -133,17 +135,17 @@ assertTestFailure();
 
 shell.cd('../');
 
-shell.echo('### Testing elm-test on example-application-no-tests');
+shell.echo('### Testing elm-test on examples/application-no-tests');
 
-shell.cd('example-application-no-tests');
+shell.cd('application-no-tests');
 
 assertTestFailure();
 
 shell.cd('../');
 
-shell.echo('### Testing elm-test on example-package-no-core');
+shell.echo('### Testing elm-test on examples/package-no-core');
 
-shell.cd('example-package-no-core');
+shell.cd('package-no-core');
 
 assertTestSuccess();
 
