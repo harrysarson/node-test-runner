@@ -1,9 +1,10 @@
 const shell = require('shelljs');
 var _ = require('lodash');
-var fs = require('fs-extra');
+var assert = require('assert');
 var path = require('path');
 var spawn = require('cross-spawn');
-const { fixturesDir, spawnOpts } = require('./util');
+const { fixturesDir, examplesDir, spawnOpts } = require('./util');
+var interfacePath = require('elmi-to-json').paths['elmi-to-json'];
 
 var filename = __filename.replace(__dirname + '/', '');
 var elmTest = 'elm-test';
@@ -15,12 +16,12 @@ function run(testFile) {
   if (!testFile) {
     var cmd = [elmTest, '--color'].join(' ');
 
-    shell.echo('Running: ' + cmd);
+    console.log('Running: ' + cmd);
     return shell.exec(cmd, spawnOpts).code;
   } else {
     var cmd = [elmTest, testFile, '--color'].join(' ');
 
-    shell.echo('Running: ' + cmd);
+    console.log('Running: ' + cmd);
     return shell.exec(cmd, spawnOpts).code;
   }
 }
@@ -28,154 +29,169 @@ function run(testFile) {
 function assertTestErrored(testfile) {
   var code = run(testfile);
   if (code !== 1) {
-    shell.exec(
-      'echo ' +
-        filename +
+    console.error(
+      filename +
         ': error: ' +
         (testfile ? testfile + ': ' : '') +
         'expected tests to exit with ERROR exit code, not exit code' +
-        code +
-        ' >&2'
+        code
     );
-    shell.exit(1);
   }
+  assert.strictEqual(code, 1);
 }
 
 function assertTestIncomplete(testfile) {
   var code = run(testfile);
   if (code !== 3) {
-    shell.exec(
-      'echo ' +
-        filename +
+    console.error(
+      filename +
         ': error: ' +
         (testfile ? testfile + ': ' : '') +
         'expected tests to exit with INCOMPLETE exit code, not exit code' +
-        code +
-        ' >&2'
+        code
     );
-    shell.exit(1);
   }
+  assert.strictEqual(code, 3);
 }
 
 function assertTestFailure(testfile) {
   var code = run(testfile);
   if (code < 2) {
-    shell.exec(
-      'echo ' +
-        filename +
+    console.error(
+      filename +
         ': error: ' +
         (testfile ? testfile + ': ' : '') +
-        'expected tests to fail >&2'
+        'expected tests to fail'
     );
-    shell.exit(1);
   }
+  assert(code >= 2);
 }
 
 function assertTestSuccess(testFile) {
   var code = run(testFile);
   if (code !== 0) {
-    shell.exec(
-      'echo ' +
-        filename +
+    console.error(
+      filename +
         ': ERROR: ' +
         (testFile ? testFile + ': ' : '') +
-        'Expected tests to pass >&2'
+        'Expected tests to pass'
     );
-    shell.exit(1);
   }
+  assert.strictEqual(code, 0);
 }
 
-shell.echo(filename + ': Uninstalling old elm-test...');
-shell.exec('npm remove --ignore-scripts=false --global ' + elmTest);
+describe('ci', function() {
+  this.timeout(60000);
+  before(() => {
+    console.log('Uninstalling old elm-test...');
+    shell.exec('npm remove --ignore-scripts=false --global ' + elmTest);
 
-shell.echo(filename + ': Installing elm-test...');
-shell.exec('npm link --ignore-scripts=false');
+    shell.echo('Installing elm-test...');
+    shell.exec('npm link --ignore-scripts=false');
+  });
 
-var interfacePath = require('elmi-to-json').paths['elmi-to-json'];
+  it('Installed elmi-to-json is valid', () => {
+    var interfaceResult = spawn.sync(interfacePath, ['--help']);
+    var interfaceExitCode = interfaceResult.status;
 
-shell.echo(filename + ': Verifying installed elmi-to-json...');
-var interfaceResult = spawn.sync(interfacePath, ['--help']);
-var interfaceExitCode = interfaceResult.status;
+    if (interfaceExitCode !== 0) {
+      console.log(
+        'Failed because `elmi-to-json` is present, but `elmi-to-json --help` returned with exit code ' +
+          interfaceExitCode
+      );
+      console.log(`stdout: ${interfaceResult.stdout.toString()}`);
+      console.log(`stderr: ${interfaceResult.stderr.toString()}`);
+    }
+    assert.strictEqual(interfaceExitCode, 0);
+  });
 
-if (interfaceExitCode !== 0) {
-  shell.echo(
-    filename +
-      ': Failed because `elmi-to-json` is present, but `elmi-to-json --help` returned with exit code ' +
-      interfaceExitCode
-  );
-  shell.echo(interfaceResult.stdout.toString());
-  shell.echo(interfaceResult.stderr.toString());
-  shell.exit(1);
-}
+  it('--version flag gives version', () => {
+    const exitCode = run('--version');
+    assert.strictEqual(exitCode, 0);
+  });
 
-shell.echo(filename + ': Verifying installed elm-test version...');
-run('--version');
+  describe('examples', () => {
+    beforeEach(() => {
+      shell.cd(examplesDir);
+    });
 
-/* Test examples */
+    it('Running elm-test in example/application fails', () => {
+      shell.cd('application');
+      assertTestFailure();
+    });
 
-shell.cd('examples');
+    it('Running all passing tests in example/application', () => {
+      shell.cd('application');
+      assertTestSuccess(path.join('tests', '*Pass*.elm'));
+    });
 
-shell.echo('### Testing elm-test on examples/application/');
+    it('Running all failing tests in example/application', () => {
+      shell.cd('application');
+      assertTestFailure(path.join('tests', '*Fail*.elm'));
+    });
 
-shell.cd('application');
+    it('Running elm-test in example/package fails', () => {
+      shell.cd('package');
+      assertTestFailure();
+    });
 
-assertTestFailure();
-assertTestSuccess(path.join('tests', '*Pass*.elm'));
-assertTestFailure(path.join('tests', '*Fail*.elm'));
+    it('Running all passing tests in example/package', () => {
+      shell.cd('package');
+      assertTestSuccess(path.join('tests', '*Pass*.elm'));
+    });
 
-shell.cd('../');
+    it('Running all failing tests in example/package', () => {
+      shell.cd('package');
+      assertTestFailure(path.join('tests', '*Fail*.elm'));
+    });
 
-shell.echo('### Testing elm-test on examples/package/');
+    it('Running elm-test in example/application-no-tests', () => {
+      shell.cd('application-no-tests');
+      assertTestFailure();
+    });
 
-shell.cd('package');
+    it('Running elm-test in example/package-no-core passes', () => {
+      shell.cd('package-no-core');
+      assertTestSuccess();
+    });
+  });
+  describe('Running tests in individual elm files', () => {
+    shell.cd(fixturesDir);
+    describe.only('Passing tests', () => {
+      let fileCount = shell.ls('tests/Passing/').map(function(testToRun) {
+        it(`${testToRun}`, () => {
+          assertTestSuccess(path.join('tests', 'Passing', testToRun));
+        });
+      }).length;
+      it('Tests have been found', () => {
+        assert(fileCount > 0);
+      });
+    });
+    describe('Failing tests', () => {
+      let fileCount = shell.ls('tests/Failing').map(function(testToRun) {
+        it(`${testToRun}`, () => {
+          assertTestFailure(path.join('tests', 'Failing', testToRun));
+        });
+      }).length;
 
-assertTestSuccess(path.join('tests', '*Pass*.elm'));
-assertTestFailure(path.join('tests', '*Fail*.elm'));
-assertTestFailure();
+      it('Tests have been found', () => {
+        assert(fileCount > 0);
+      });
+    });
+    describe('Tests that error with a runtime exception', () => {
+      let fileCount = shell
+        .ls('tests/RuntimeException')
+        .map(function(testToRun) {
+          it(`${testToRun}`, () => {
+            assertTestErrored(
+              path.join('tests', 'RuntimeException', testToRun)
+            );
+          });
+        }).length;
 
-shell.cd('../');
-
-shell.echo('### Testing elm-test on examples/application-no-tests');
-
-shell.cd('application-no-tests');
-
-assertTestFailure();
-
-shell.cd('../');
-
-shell.echo('### Testing elm-test on examples/package-no-core');
-
-shell.cd('package-no-core');
-
-assertTestSuccess();
-
-shell.cd(fixturesDir);
-
-/* ci tests on single elm files */
-
-shell.ls('tests/Passing/').forEach(function(testToRun) {
-  shell.echo('\n### Testing ' + testToRun + ' (expecting it to pass)\n');
-  assertTestSuccess(path.join('tests', 'Passing', testToRun));
+      it('Tests have been found', () => {
+        assert(fileCount > 0);
+      });
+    });
+  });
 });
-
-shell.ls('tests/Failing').forEach(function(testToRun) {
-  shell.echo('\n### Testing ' + testToRun + ' (expecting it to fail)\n');
-  assertTestFailure(path.join('tests', 'Failing', testToRun));
-});
-
-shell.ls('tests/RuntimeException').forEach(function(testToRun) {
-  shell.echo(
-    '\n### Testing ' +
-      testToRun +
-      ' (expecting it to error with a runtime exception)\n'
-  );
-  assertTestErrored(path.join('tests', 'RuntimeException', testToRun));
-});
-
-shell.echo('');
-shell.echo(filename + ': Everything looks good!');
-shell.echo('                                                            ');
-shell.echo('  __   ,_   _  __,  -/-     ,         __   __   _   ,    ,  ');
-shell.echo('_(_/__/ (__(/_(_/(__/_    _/_)__(_/__(_,__(_,__(/__/_)__/_)_');
-shell.echo(' _/_                                                        ');
-shell.echo('(/                                                          ');

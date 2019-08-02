@@ -1,6 +1,7 @@
 const path = require('path');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
+const examplesDir = path.join(__dirname, '..', 'examples');
 
 const elmHome = path.join(fixturesDir, 'elm-home');
 
@@ -12,4 +13,5 @@ const spawnOpts = {
 module.exports = {
   fixturesDir,
   spawnOpts,
+  examplesDir,
 };
