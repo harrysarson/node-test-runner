@@ -1,0 +1,57 @@
+version: 2
+updates:
+- package-ecosystem: elm
+  directory: "/elm"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
+- package-ecosystem: npm
+  directory: "/"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: eslint
+    versions:
+    - 7.18.0
+    - 7.19.0
+    - 7.20.0
+    - 7.21.0
+    - 7.22.0
+    - 7.23.0
+    - 7.24.0
+  - dependency-name: flow-bin
+    versions:
+    - 0.143.1
+    - 0.146.0
+    - 0.147.0
+    - 0.148.0
+  - dependency-name: elm-review
+    versions:
+    - 2.4.0
+    - 2.4.4
+    - 2.4.5
+    - 2.4.6
+  - dependency-name: mocha
+    versions:
+    - 8.3.1
+  - dependency-name: graceful-fs
+    versions:
+    - 4.2.5
+    - 4.2.6
+  - dependency-name: elm-format
+    versions:
+    - 0.8.5
+  - dependency-name: elm
+    versions:
+    - 0.19.1-4
+    - 0.19.1-5
+  - dependency-name: chokidar
+    versions:
+    - 3.5.1
+  - dependency-name: commander
+    versions:
+    - 7.0.0
+  - dependency-name: elm-json
+    versions:
+    - 0.2.10
